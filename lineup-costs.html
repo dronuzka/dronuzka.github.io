@@ -1,0 +1,166 @@
+
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+<script type="module">
+    import { h, Component, render } from 'https://esm.sh/preact';
+    import { useState } from 'https://esm.sh/preact/hooks';
+
+    const COINS = [
+        0, 0, 0, 0, 0,
+        5, 5, 5, 5, 5,
+        15, 15, 15, 15, 15,
+        55, 55, 55, 55, 55,
+        115, 115, 115, 115, 115,
+        315, 315, 315, 315, 315,
+        815, 815, 815, 815, 815,
+        1815, 1815, 1815, 1815, 1815,
+        3315, 3315, 3315, 3315, 3315,
+        7315, 7315, 7315, 7315, 7315,
+        13315, 13315, 13315, 13315, 13315,
+        21315, 21315, 21315, 21315, 21315,
+        33315, 33315, 33315, 33315, 33315,
+        63315, 63315, 63315, 63315, 63315,
+        163315, 163315, 163315, 163315, 163315,
+        313315, 313315, 313315, 313315, 313315,
+        513315, 513315, 513315, 513315, 513315,
+        813315, 813315, 813315, 813315, 813315,
+        1213315, 1213315, 1213315, 1213315, 1213315,
+        1813315, 1813315, 1813315, 1813315, 1813315
+    ];
+
+    const EXP = [
+        0, 100, 300, 700, 1300,
+        2100, 3100, 4300, 5700, 7300,
+        10500, 14300, 18900, 24500, 31300,
+        39300, 49100, 61100, 75100, 92100,
+        119100, 152100, 190100, 236100, 292100,
+        359100, 439100, 535100, 655100, 795100,
+        1005100, 1245100, 1525100, 1865100, 2245100,
+        2625100, 3035100, 3465100, 3925100, 4395100,
+        4915100, 5595100, 6285100, 6995100, 7735100,
+        8485100, 9255100, 10055100, 10875100, 11715100,
+        12575100, 13455100, 14365100, 15315100, 16295100,
+        17395100, 18495100, 19695100, 20895100, 22095100,
+        23595100, 25095100, 26695100, 28395100, 30095100,
+        31895100, 33795100, 35795100, 37895100, 40095100,
+        42395100, 44695100, 47095100, 49495100, 51995100,
+        54495100, 57095100, 59695100, 62395100, 65095100,
+        67895100, 70695100, 73595100, 76495100, 79495100,
+        82495100, 85595100, 88795100, 91995100, 95295100,
+        98695100, 102195100, 105895100, 109795100, 113895100,
+        118195100, 122695100, 127395100, 132295100, 137495100
+    ];
+
+    function getHeroCost(level) {
+        return {
+            coins: COINS[level - 1],
+            exp: EXP[level - 1],
+        }
+    }
+
+    function sumCosts(a, b) {
+        return {
+            coins: a.coins + b.coins,
+            exp: a.exp + b.exp,
+        }
+    }
+
+    function computeData(state) {
+        const lineupResult = state.map(function (levels) {
+            return levels.map(getHeroCost).reduce(sumCosts)
+        })
+        const total = lineupResult.reduce(sumCosts)
+        return { lineupResult, total }
+    }
+
+    function parseLevel(value, fallback) {
+        let int = parseInt(value)
+        if (Number.isNaN(int)) int = fallback
+        if (int < 1) int = 1
+        if (int > 100) int = 100
+        return int
+    }
+
+    function App(props) {
+
+        const [state, setValue] = useState([
+            [80, 80, 80, 80, 80],
+            [70, 50, 75, 70, 70],
+            [70, 75, 70, 90, 70]
+        ])
+
+        const { lineupResult, total } = computeData(state)
+
+        function updateValue(lineupIndex, heroIndex, value) {
+            let int = parseLevel(value, state[lineupIndex][heroIndex])
+            const copy = [[...state[0]], [...state[1]], [...state[2]]]
+            copy[lineupIndex][heroIndex] = int
+            setValue(copy)
+        }
+
+        function renderHero(lineupIndex, heroIndex) {
+            const gridRow = lineupIndex + 2
+            const inputAttrs = {
+                value: state[lineupIndex][heroIndex],
+                onChange({ target }) {
+                    updateValue(lineupIndex, heroIndex, target.value)
+                }
+            }
+            return h('div', { style: { gridRow, gridColumn: heroIndex + 2 } }, [
+                h('div', { class: "field" }, [h('input', inputAttrs),])
+            ])
+        }
+
+        function renderLineup(lineupIndex) {
+            const gridRow = lineupIndex + 2
+            return [
+                h('div', { style: { gridRow, gridColumn: 1, padding: "8px" } }, "Lineup " + (lineupIndex + 1)),
+                renderHero(lineupIndex, 0),
+                renderHero(lineupIndex, 1),
+                renderHero(lineupIndex, 2),
+                renderHero(lineupIndex, 3),
+                renderHero(lineupIndex, 4),
+                h('div', { style: { gridRow, gridColumn: 7, padding: "8px" } }, lineupResult[lineupIndex].exp.toLocaleString()),
+                h('div', { style: { gridRow, gridColumn: 8, padding: "8px" } }, lineupResult[lineupIndex].coins.toLocaleString())
+            ]
+        }
+
+        return h('div', { class: "ui raised very padded text container segment" }, [
+            h('h2', { class: "ui header" }, "Line up cost calculation"),
+            h('section', {
+                class: "ui form", style: {
+                    "display": "grid",
+                    "width": "100%",
+                    "grid-template-columns": "100px 53px 53px 53px 53px 53px 1fr 1fr",
+                    "gap": "5px",
+                    "grid-auto-rows": "38px",
+                }
+            }, [
+                h('div', { style: { gridRow: 1, gridColumn: 1, padding: "8px" } }, ""),
+                h('div', { style: { gridRow: 1, gridColumn: 2, padding: "8px" } }, "H.1"),
+                h('div', { style: { gridRow: 1, gridColumn: 3, padding: "8px" } }, "H.2"),
+                h('div', { style: { gridRow: 1, gridColumn: 4, padding: "8px" } }, "H.3"),
+                h('div', { style: { gridRow: 1, gridColumn: 5, padding: "8px" } }, "H.4"),
+                h('div', { style: { gridRow: 1, gridColumn: 6, padding: "8px" } }, "H.5"),
+                h('div', { style: { gridRow: 1, gridColumn: 7, padding: "8px" } }, "Experience"),
+                h('div', { style: { gridRow: 1, gridColumn: 8, padding: "8px" } }, "Coins"),
+                ...renderLineup(0),
+                ...renderLineup(1),
+                ...renderLineup(2),
+                h('div', { style: { gridRow: 5, gridColumn: 1, padding: "8px" } }, ""),
+                h('div', { style: { gridRow: 5, gridColumn: 2, padding: "8px" } }, ""),
+                h('div', { style: { gridRow: 5, gridColumn: 3, padding: "8px" } }, ""),
+                h('div', { style: { gridRow: 5, gridColumn: 4, padding: "8px" } }, ""),
+                h('div', { style: { gridRow: 5, gridColumn: 5, padding: "8px" } }, ""),
+                h('div', { style: { gridRow: 5, gridColumn: 6, padding: "8px" } }, ""),
+                h('div', { style: { gridRow: 5, gridColumn: 7, padding: "8px" } }, total.exp.toLocaleString()),
+                h('div', { style: { gridRow: 5, gridColumn: 8, padding: "8px" } }, total.coins.toLocaleString())
+            ])
+        ]);
+    }
+
+    render(h(App), document.body);
+</script>
