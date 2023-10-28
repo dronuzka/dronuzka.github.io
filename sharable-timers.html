@@ -1,0 +1,189 @@
+<meta charset="UTF-8" />
+<style>
+.input-form {
+    display: grid;
+    grid-template-columns: 60px 15px 60px 30px 60px 30px 60px 30px 1fr 100px;
+    grid-gap: 8px;
+}
+</style>
+<script type="module">
+    import { h, Component, render } from 'https://esm.sh/preact';
+    import { useState, useEffect } from 'https://esm.sh/preact/hooks';
+
+    function getGameTime() {
+        return timeToGameTime(new Date());
+    }
+
+    function timeToGameTime(localDate) {
+        const offset = -2 // Game is UTC(-2)
+        const utcTime = localDate.getTime() + (localDate.getTimezoneOffset() * 60000)
+        const gameTime = utcTime + (3600000 * offset)
+        const gameDate = new Date(gameTime);
+        return gameDate;
+    }
+
+    function gameTimeToTime(gameTime) {
+        const offset = -2 // Game is UTC(-2)
+        const utcTime = gameTime.getTime() - 3600000 * offset
+        const localTime = utcTime - (gameTime.getTimezoneOffset() * 60000)
+        return new Date(localTime)
+    }
+
+    function formatDate(date) {
+        return `${date.getDate()}.${date.getMonth() + 1} ${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`
+    }
+
+    function getData() {
+        try {
+            return JSON.parse(localStorage.getItem("data")) || []
+        } catch {
+            return []
+        }
+    }
+
+    function App(props) {
+        const [ data, setData ] = useState({ dd: 0, hh: 0, mm: 0, ss: 0, comment: ""  })
+        const [ list, setList ] = useState(getData())
+        const [ share, setShare ] = useState(null)
+        const [ shared, setShared ] = useState(null)
+        const [ currentTime, setCurrentTime ] = useState(getGameTime().getTime())
+
+        useEffect(() => {
+            const interval = setInterval(() => {
+                setCurrentTime(getGameTime().getTime())
+            }, 1000)
+            return () => {
+                clearInterval(interval)
+            }
+        }, [])
+
+        useEffect(() => {
+            localStorage.setItem("data", JSON.stringify(list))
+        }, [ list ])
+
+        function onInput({ target }) {
+            if (target.name === "comment") {
+                return setData({
+                    ...data, 
+                    [target.name]: target.value 
+                })
+            }
+
+            let value = parseInt(target.value) || 0
+            if (value < 0) value = 0;
+
+            switch (target.name) {
+                case "ss":
+                case "mm":
+                    if (value > 60) value = 60;
+                    break;
+                case "hh":
+                    if (value > 24) value = 60;
+                    break;
+            }
+
+            setData({ ...data, [target.name]: value })
+        }
+
+        function byStartsAt(a, b) {
+            return b.startsAt - a.startsAt
+        }
+
+        function onClick() {
+            const delay = (((data.dd * 24 + data.hh) * 60 + data.mm) * 60 + data.ss) * 1000
+            const createdAt = currentTime
+            const startsAt = createdAt + delay
+            const newList = [ ...list, { comment: data.comment, createdAt, startsAt }]
+            newList.sort(byStartsAt)
+            setList(newList)
+            setData({ dd: 0, hh: 0, mm: 0, ss: 0, comment: ""  })
+            console.log(newList)
+        }
+
+        return h('div', { onInput }, [
+            h("form", { class: "input-form" }, [
+                h("input", { value: data.dd, name: "dd", style: { "grid-column": 1, "font-size": "large" } }),
+                h("span", { style: { gridColumn: 2, paddingTop: 3 } }, "D"),
+                h("input", { value: data.hh, name: "hh", style: { "grid-column": 3, "font-size": "large" } }),
+                h("span", { style: { gridColumn: 4, paddingTop: 3 } }, "HH"),
+                h("input", { value: data.mm, name: "mm", style: { "grid-column": 5, "font-size": "large" } }),
+                h("span", { style: { gridColumn: 6, paddingTop: 3 } }, "MM"),
+                h("input", { value: data.ss, name: "ss", style: { "grid-column": 7, "font-size": "large" } }),
+                h("span", { style: { gridColumn: 8, paddingTop: 3 } }, "SS"),
+                h("input", { value: data.comment, name: "comment", style: { "grid-column": 9, "font-size": "large" } }),
+                h("button", { type: "button", onClick, class: "add", style: { "grid-column": 10, "font-size": "large" } }, "Create"),
+            ]),
+            h("div", { class: "timer-list" }, [
+                ...list.map(item => {
+                    const startsAt = item.startsAt
+                    var future = true
+                    if (currentTime > startsAt) {
+                        future = false
+                    }
+
+                    let diff = Math.floor(Math.abs(startsAt - currentTime)/1000)
+                    const ss = diff % 60
+                    diff = (diff - ss)/60
+                    const mm = diff % 60
+                    diff = (diff - mm)/60
+                    const hh = diff
+
+                    const firstColumn = future ? `${hh}:${mm.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}` : `-${hh}:${mm.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}`
+
+                    return h("div", { 
+                        style: {
+                            "display": "grid", 
+                            "grid-template-columns": "100px 250px 1fr 70px 70px",
+                            "grid-gap": "5px",
+                            "background": future ? "white" : "#FFEEEE",
+                            "margin": "5px"
+                        }
+                    }, [
+                        h("span", { style: { "font-size": "bigger" } }, formatDate(gameTimeToTime(new Date(startsAt)))),
+                        h("span", { style: { "font-size": "bigger" } }, firstColumn),
+                        h("input", { 
+                            value: item.comment, 
+                            onInput({ target: { value } }) {
+                                item.comment = value
+                                setList([...list])
+                            }, 
+                            style: { "font-size": "bigger" } 
+                        }),
+                        h("button", { onClick() {
+                            setList(list.filter(x => x !== item))
+                        } }, "Delete"),
+                        h("button", { onClick() {
+                            setShare(item)
+                        } }, "Share")
+                    ])
+                })
+            ]),
+            share ? h("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "30px", background: "white", border: "1px solid gray" } }, [
+                h("pre", {}, JSON.stringify(share)),
+                h("button", { onClick() {
+                                setShare(null)
+                            } }, "close")
+            ]) : h("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px", background: "white", border: "1px solid gray" } }, [
+                h("input", {
+                    value: shared,
+                    onInput({ target: {value} }) {
+                        setShared(value)
+                    },
+                    style: { width: "100%" }
+                }),
+                h("button", { onClick() {
+                    try {
+                        const newList = [ ...list, JSON.parse(shared)]
+                        newList.sort(byStartsAt)
+                        setList(newList)
+                        setShared("")
+                    } catch {
+
+                    }
+                } }, "Import")
+            ])
+        ]);
+    }
+
+    render(h(App), document.body);
+</script>
